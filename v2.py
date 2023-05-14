@@ -13,66 +13,6 @@ text = """
   ███    ██      ██      ██    ██    ██    
  ███████ ███████ ██       ██████     ██    """
 
-class ZefoyDriver:
-    @staticmethod
-    def solve_captcha():
-        try:
-            client         = Session()
-            client.headers = {
-                'authority' : 'zefoy.com',
-                'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (Kcaptcha_page, like Gecko) Chrome/112.0.0.0 Safari/537.36',
-            }
-
-            captcha_page  = str(client.get('https://zefoy.com').text).replace('&amp;', '&')
-            captcha_url   = findall(r'img src="([^"]*)"', captcha_page)[0]
-            captcha_token = findall(r'type="text" maxlength="50" name="(.*)" oninput="this.value', captcha_page)[0]
-            captcha_image = client.get('https://zefoy.com' + captcha_url).content
-
-            response = client.post("https://api.api-ninjas.com/v1/imagetotext", files = {'image': captcha_image},
-                headers = {
-                    "X-Api-Key": "zvqy05NKzJMuouwKtewfPw==aEmBwzl8nD8s47QO",
-                    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-                }
-            )
-
-            captcha_answer = response.json()[0]['text'].lower()
-
-            print('captcha ocr: ', captcha_answer)
-
-            response = client.post('https://zefoy.com',
-                data = {
-                    captcha_token: captcha_answer,
-                    'token': ''
-            })
-
-            findall(r'remove-spaces" name="(.*)" placeholder', response.text)[0]
-            
-            return client.cookies.get('PHPSESSID')
-        
-        except Exception as e:
-            print('Failed to solve captcha: ', e)
-            return False
-    
-    @staticmethod
-    def get_driver():
-        
-        driver = Chrome(use_subprocess=True)
-        driver.get('https://zefoy.com')
-        
-        phpsessid = ZefoyDriver.solve_captcha()
-        
-        while phpsessid == False:
-            phpsessid = ZefoyDriver.solve_captcha()
-        
-        print('solved captcha, phpsessid: ', phpsessid)
-
-        cookie = {'name':'PHPSESSID', 'value': phpsessid}
-        driver.add_cookie(cookie)
-
-        driver.refresh()
-        
-        return driver
-
 class zefoy:
 
     def __init__(self):
@@ -94,7 +34,12 @@ class zefoy:
         }
         
         print("\n" + self._print("Waiting for Zefoy to load... 502 Error = Blocked country or VPN is on"))
-        self.driver      = ZefoyDriver.get_driver()
+        
+        self.driver.get("https://zefoy.com")
+        self.wait_for_xpath(self.captcha_box)
+        
+        print(self._print("Site loaded, enter the CAPTCHA to continue."))
+        print(self._print("Waiting for you..."))
         
     def main(self):
         os.system(self.clear)
